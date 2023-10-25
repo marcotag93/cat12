@@ -23,6 +23,11 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
+if [[ ! $1 =~ \.nii(\.gz)?$ ]]; then
+    echo "Error: The provided image file '$1' is not a valid NIfTI file (.nii or .nii.gz)."
+    exit 1
+fi
+
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
   echo "Usage: $(basename "$0") [path_to_image] options: [--bet, --coreg path_to_reference_image] "
   echo ""
@@ -36,12 +41,12 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
   echo "Otherwise you can pass the variable once you call the script (e.g.: SPM12_DIR=/path/to/spm12 ./cat12)"
   echo ""
   echo "Arguments:"
-  echo "Path to the image file to process. Must be a nifti (.nii) file."
+  echo "Path to the image file to process. Must be a nifti (.nii/.nii.gz) file."
   echo ""
   echo "Options:"
   echo "--help -h : show help" 
   echo "--bet : Run only a brain extraction without any normalization."
-  echo "--coreg : Run coregistration of the provided image with a reference image. Must be followed by path to the reference .nii file."
+  echo "--coreg : Run coregistration of the provided image with a reference image. Must be followed by path to the reference .nii/.nii.gz file."
   exit 0
 fi
 
@@ -77,10 +82,13 @@ while (( "$#" )); do
         echo "Error: The provided reference image '$T1W_REF' does not exist or is not a file."
         exit 1
       fi
+      if [[ ! $T1W_REF =~ \.nii(\.gz)?$ ]]; then
+        echo "Error: The provided reference image '$T1W_REF' is not a valid NIfTI file (.nii or .nii.gz)."
+        exit 1
+      fi
       shift 2
       ;;
-    --) # end argument parsing
-      shift
+    --) 
       break
       ;;
     -*|--*=) # unsupported flags
