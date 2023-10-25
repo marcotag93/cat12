@@ -34,7 +34,8 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
   echo "Run a normalization pipeline by MATLAB (SPM12 and CAT12) directly in the terminal to normalize a T1w image into a MNI152 space using SPM12 and CAT12 (MATLAB Toolbox) directly into the terminal."
   echo "You can perform a brain extraction without normalization process using --bet option flag". 
   echo ""
-  echo "Note that you MUST change the SPM12 folder in the main script 'cat12' (variable: SPM12_DIR); the cat12 folder is assumed to be saved inside the spm12-toolbox folder, as explained in the cat12 documentation."
+  echo "Note that you can change the SPM12 folder in the main script 'cat12' (variable: SPM12_DIR); the cat12 folder is assumed to be saved inside the spm12-toolbox folder, as explained in the cat12 documentation."
+  echo "Otherwise you can pass the variable once you call the script (e.g.: SPM12_DIR=/path/to/spm12 ./cat12)"
   echo ""
   echo "Arguments:"
   echo "Path to the image file to process. Must be a nifti (.nii) file."
