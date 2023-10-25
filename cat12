@@ -6,6 +6,16 @@
 SPM12_DIR='./spm12';
 ############################################################################################################
 
+# Check for dependencies
+MATLAB_PATH=$(which matlab)
+if [ -z "$MATLAB_PATH" ]; then
+    echo "MATLAB could not be found. Please install MATLAB and try again."
+    exit 1
+else
+    echo "MATLAB found at: $MATLAB_PATH"
+    echo "Please check that the 'spm12' and 'cat12' folders are installed and part of the MATLAB path."
+fi
+
 if [ $# -eq 0 ]; then
     echo "No anatomical image provided. Please provide a path to the image."
     exit 1
