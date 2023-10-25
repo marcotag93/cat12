@@ -40,5 +40,5 @@ Notes
 
     The path SPM12_DIR inside the main script must be changed with the correct one for your system. 
     The CAT12 folder should be saved inside the SPM12 toolbox folder, as the CAT12 documentation suggests.
-    The image file must be in NIfTI format (.nii).
+    The image file must be in NIfTI format (.nii/.nii.gz).
 
