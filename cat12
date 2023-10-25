@@ -8,7 +8,6 @@ if [ -z "$SPM12_DIR" ]; then
 fi
 ############################################################################################################
 
-
 # Check for dependencies
 MATLAB_PATH=$(which matlab)
 if [ -z "$MATLAB_PATH" ]; then
@@ -46,6 +45,18 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
   exit 0
 fi
 
+# Check if more than one input file is provided
+if [ $# -gt 1 ]; then
+  case "$2" in
+    --bet|--coreg|--*)
+      ;;
+    *)
+      echo "Error: More than one input file provided. This script works with only one input file."
+      exit 1
+      ;;
+  esac
+fi
+
 BET_FLAG=0
 COREG_FLAG=0
 T1W_REF=""
@@ -57,7 +68,15 @@ while (( "$#" )); do
       ;;
     --coreg)
       COREG_FLAG=1
+      if [ $# -lt 2 ]; then
+        echo "Error: No reference image provided for --coreg flag."
+        exit 1
+      fi
       T1W_REF="$2"
+      if [ ! -f "$T1W_REF" ]; then
+        echo "Error: The provided reference image '$T1W_REF' does not exist or is not a file."
+        exit 1
+      fi
       shift 2
       ;;
     --) # end argument parsing
@@ -76,11 +95,6 @@ while (( "$#" )); do
 done
 #
 eval set -- "$PARAMS"
-
-if [[ "$1" != *.nii ]]; then
-    echo "The provided argument is not a .nii file. Please provide a .nii file."
-    exit 1
-fi
 
 CODE_SRC=$(dirname "$0")
 T1W_SRC=$1
@@ -107,6 +121,3 @@ else
     matlab -nodisplay -nosplash -nodesktop -r "addpath(dirname('${CODE}')); cat12norm('${T1W_SRC}', '${SPM12_DIR}'); exit;"
     echo "[NORMALIZATION]: DONE! " 
 fi
-
-
-
