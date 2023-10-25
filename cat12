@@ -6,6 +6,10 @@
 SPM12_DIR='./spm12';
 ############################################################################################################
 
+if [ -z "$SPM12_DIR" ]; then
+    SPM12_DIR='./spm12'
+fi
+
 # Check for dependencies
 MATLAB_PATH=$(which matlab)
 if [ -z "$MATLAB_PATH" ]; then
