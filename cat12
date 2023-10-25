@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# Default voxel size: 1 1 1 
+
+################################ CHANGE THIS PATH ACCORDING TO YOUR SYSTEM ################################
+SPM12_DIR='/home/marcotagliaferri/Documents/spm12';
+############################################################################################################
+
+if [ $# -eq 0 ]; then
+    echo "No anatomical image provided. Please provide a path to the image."
+    exit 1
+fi
+
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+  echo "Usage: $(basename "$0") [path_to_image] options: [--bet, --coreg path_to_reference_image] "
+  echo ""
+  echo "Requirements:"
+  echo "MATLAB, SPM12, CAT12"
+  echo ""
+  echo "Run a normalization pipeline by MATLAB (SPM12 and CAT12) directly in the terminal to normalize a T1w image into a MNI152 space using SPM12 and CAT12 (MATLAB Toolbox) directly into the terminal."
+  echo "You can perform a brain extraction without normalization process using --bet option flag". 
+  echo ""
+  echo "Note that you MUST change the SPM12 folder in the main script 'cat12' (variable: SPM12_DIR); the cat12 folder is assumed to be saved inside the spm12-toolbox folder, as explained in the cat12 documentation."
+  echo ""
+  echo "Arguments:"
+  echo "Path to the image file to process. Must be a nifti (.nii) file."
+  echo ""
+  echo "Options:"
+  echo "--help -h : show help" 
+  echo "--bet : Run only a brain extraction without any normalization."
+  echo "--coreg : Run coregistration of the provided image with a reference image. Must be followed by path to the reference .nii file."
+  exit 0
+fi
+
+BET_FLAG=0
+COREG_FLAG=0
+T1W_REF=""
+while (( "$#" )); do
+  case "$1" in
+    --bet)
+      BET_FLAG=1
+      shift
+      ;;
+    --coreg)
+      COREG_FLAG=1
+      T1W_REF="$2"
+      shift 2
+      ;;
+    --) # end argument parsing
+      shift
+      break
+      ;;
+    -*|--*=) # unsupported flags
+      echo "Error: Unsupported flag $1" >&2
+      exit 1
+      ;;
+    *) 
+      PARAMS="$PARAMS $1"
+      shift
+      ;;
+  esac
+done
+#
+eval set -- "$PARAMS"
+
+if [[ "$1" != *.nii ]]; then
+    echo "The provided argument is not a .nii file. Please provide a .nii file."
+    exit 1
+fi
+
+CODE_SRC=$(dirname "$0")
+T1W_SRC=$1
+
+if [ $BET_FLAG -eq 1 ]; then
+    CODE="${CODE_SRC}/cat12bet.m"
+    echo "------------------------------------------------"
+    echo "[BET]: STARTING BRAIN EXTRACTION... " 
+    echo "------------------------------------------------"
+    matlab -nodisplay -nosplash -nodesktop -r "addpath(dirname('${CODE}')); cat12bet('${T1W_SRC}', '${SPM12_DIR}'); exit;"
+    echo "[BET]: DONE!" 
+elif [ $COREG_FLAG -eq 1 ]; then
+    CODE="${CODE_SRC}/cat12coreg.m"
+    echo "------------------------------------------------"
+    echo "[COREGISTRATION]: STARTING COREGISTRATION... " 
+    echo "------------------------------------------------"
+    matlab -nodisplay -nosplash -nodesktop -r "addpath(dirname('${CODE}')); cat12coreg('${T1W_SRC}', '${T1W_REF}', '${SPM12_DIR}'); exit;"
+    echo "[COREGISTRATION]: DONE!" 
+else
+    CODE="${CODE_SRC}/cat12norm.m"
+    echo "------------------------------------------------"
+    echo "[NORMALIZATION]: STARTING NORMALIZATION IN MNI152... " 
+    echo "------------------------------------------------"
+    matlab -nodisplay -nosplash -nodesktop -r "addpath(dirname('${CODE}')); cat12norm('${T1W_SRC}', '${SPM12_DIR}'); exit;"
+    echo "[NORMALIZATION]: DONE! " 
+fi
+
+
+
