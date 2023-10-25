@@ -86,6 +86,34 @@ while (( "$#" )); do
         echo "Error: The provided reference image '$T1W_REF' is not a valid NIfTI file (.nii or .nii.gz)."
         exit 1
       fi
+      if [[ "$T1W_REF" != *.nii ]]; then
+        MRCONVERT_PATH=$(which mrconvert)
+        if [ -z "$MRCONVERT_PATH" ]; then
+          FSL_PATH=$(which fslchfiletype)
+          if [ -z "$FSL_PATH" ]; then
+            GZIP_PATH=$(which gzip)
+            if [ -z "$GZIP_PATH" ]; then
+              echo "Neither mrconvert (MRtrix3), fslchfiletype (FSL), nor gzip could be found. Please install one of them and try again."
+              exit 1
+            else
+              echo "Using gzip to convert reference image to NIFTI format..."
+              T1W_REF_NII="${T1W_REF%.*}.nii"
+              gzip -dk "$T1W_REF" "$T1W_REF_NII"
+              T1W_REF="$T1W_REF_NII"
+            fi
+          else
+            echo "Using FSL's fslchfiletype to convert reference image to NIFTI format..."
+            T1W_REF_NII="${T1W_REF%.*}.nii"
+            fslchfiletype NIFTI "$T1W_REF" "$T1W_REF_NII"
+            T1W_REF="$T1W_REF_NII"
+          fi
+        else
+          echo "Using MRtrix3's mrconvert to convert reference image to NIFTI format..."
+          T1W_REF_NII="${T1W_REF%.*}.nii"
+          mrconvert "$T1W_REF" "$T1W_REF_NII"
+          T1W_REF="$T1W_REF_NII"
+        fi
+      fi
       shift 2
       ;;
     --) 
@@ -106,6 +134,35 @@ eval set -- "$PARAMS"
 
 CODE_SRC=$(dirname "$0")
 T1W_SRC=$1
+
+if [[ "$T1W_SRC" != *.nii ]]; then
+    MRCONVERT_PATH=$(which mrconvert)
+    if [ -z "$MRCONVERT_PATH" ]; then
+        FSL_PATH=$(which fslchfiletype)
+        if [ -z "$FSL_PATH" ]; then
+            GZIP_PATH=$(which gzip)
+            if [ -z "$GZIP_PATH" ]; then
+                echo "Neither mrconvert (MRtrix3), fslchfiletype (FSL), nor gzip could be found. Please, uncompress the .nii.gz in a .nii file and try again."
+                exit 1
+            else
+                echo "Using gzip to convert file to NIFTI format..."
+                T1W_SRC_NII="${T1W_SRC%.*}.nii"
+                gzip -dk "$T1W_SRC" "$T1W_SRC_NII"
+                T1W_SRC="$T1W_SRC_NII"
+            fi
+        else
+            echo "Using FSL's fslchfiletype to convert file to NIFTI format..."
+            T1W_SRC_NII="${T1W_SRC%.*}.nii"
+            fslchfiletype NIFTI "$T1W_SRC" "$T1W_SRC_NII"
+            T1W_SRC="$T1W_SRC_NII"
+        fi
+    else
+        echo "Using MRtrix3's mrconvert to convert file to NIFTI format..."
+        T1W_SRC_NII="${T1W_SRC%.*}.nii"
+        mrconvert "$T1W_SRC" "$T1W_SRC_NII" -force
+        T1W_SRC="$T1W_SRC_NII"
+    fi
+fi
 
 if [ $BET_FLAG -eq 1 ]; then
     CODE="${CODE_SRC}/cat12bet.m"
