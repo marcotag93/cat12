@@ -2,7 +2,7 @@
 
 # MRI Normalization Pipeline
 
-This script provides a bash command-line interface for normalizing T1-weighted MRI images into the MNI152 space using MATLAB's SPM12 and CAT12 toolboxes. It supports options for brain extraction and coregistration with a reference image. 
+This script provides a bash command-line interface for normalizing T1-weighted MRI images into the MNI152 space using MATLAB's SPM12 and CAT12 toolboxes. It supports options to perform brain extraction and/or coregistration with a reference image. 
 The script uses MATLAB functions located in the same directory of the main script. 
 
 ## Requirements
