@@ -18,7 +18,7 @@ The script uses MATLAB functions located in the same directory of the main scrip
 https://github.com/marcotag93/cat12.git
 ```
 
-3. Change the `SPM12_DIR` variable in the script to point to your SPM12 installation path.
+2. Change the `SPM12_DIR` variable in the script to point to your SPM12 installation path.
 
 ## Usage
 
