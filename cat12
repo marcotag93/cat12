@@ -3,7 +3,7 @@
 # Default voxel size: 1 1 1 
 
 ################################ CHANGE THIS PATH ACCORDING TO YOUR SYSTEM ################################
-SPM12_DIR='/home/marcotagliaferri/Documents/spm12';
+SPM12_DIR='./spm12';
 ############################################################################################################
 
 if [ $# -eq 0 ]; then
