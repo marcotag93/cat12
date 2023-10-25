@@ -13,7 +13,7 @@ function cat12norm(t1w_src, spm12_dir)
     matlabbatch{1}.spm.tools.cat.estwrite.data_wmh = {''};
     matlabbatch{1}.spm.tools.cat.estwrite.nproc = 6;
     matlabbatch{1}.spm.tools.cat.estwrite.useprior = '';
-    % matlabbatch{1}.spm.tools.cat.estwrite.opts.tpm = {'/home/marcotagliaferri/Documents/spm12/tpm/TPM.nii'};
+    % matlabbatch{1}.spm.tools.cat.estwrite.opts.tpm = {fullfile(spm12_dir, 'tpm', 'TPM.nii')};
     tpm_path = fullfile(spm12_dir, 'tpm', 'TPM.nii');
     matlabbatch{1}.spm.tools.cat.estwrite.opts.tpm = {tpm_path};
     matlabbatch{1}.spm.tools.cat.estwrite.opts.affreg = 'mni';
@@ -27,9 +27,8 @@ function cat12norm(t1w_src, spm12_dir)
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.LASmyostr = 0;
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.gcutstr = 2;
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.WMHC = 2;
-    % matlabbatch{1}.spm.tools.cat.estwrite.extopts.registration.shooting.shootingtpm = {'/home/marcotagliaferri/Documents/spm12/toolbox/cat12/templates_MNI152NLin2009cAsym/Template_0_GS.nii'};
+    % matlabbatch{1}.spm.tools.cat.estwrite.extopts.registration.shooting.shootingtpm = {fullfile(spm12_dir, 'toolbox', 'cat12', 'templates_MNI152NLin2009cAsym', 'Template_0_GS.nii')};
     shootingtpm_path = fullfile(spm12_dir, 'toolbox', 'cat12', 'templates_MNI152NLin2009cAsym', 'Template_0_GS.nii');
-    % shootingtpm_path = '/home/marcotagliaferri/Desktop/prova-densitymaps/MNI152_T1_2mm_brain.nii.gz';
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.registration.shooting.shootingtpm = {shootingtpm_path};
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.registration.shooting.regstr = 0.5;
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.vox = 1.5;
