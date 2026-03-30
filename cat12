@@ -1,10 +1,31 @@
 #!/bin/bash
 
-# Default voxel size: 1 1 1 
+# Default voxel size for normalization: 1.5 mm isotropic
 
-################################ CHANGE THIS PATH ACCORDING TO YOUR SYSTEM ################################
+################################ SPM12 PATH CONFIGURATION ################################
 if [ -z "$SPM12_DIR" ]; then
-    SPM12_DIR='./spm12'
+    # Try common default installation paths
+    if [ -d "$HOME/Documents/MATLAB/spm12" ]; then
+        SPM12_DIR="$HOME/Documents/MATLAB/spm12"
+    elif [ -d "/opt/spm12" ]; then
+        SPM12_DIR="/opt/spm12"
+    elif [ -d "/usr/local/spm12" ]; then
+        SPM12_DIR="/usr/local/spm12"
+    elif [ -d "./spm12" ]; then
+        SPM12_DIR="$(pwd)/spm12"
+    else
+        echo "Error: SPM12 directory could not be found automatically."
+        echo "Please define your SPM12 path by modifying the 'cat12' script or setting the SPM12_DIR environment variable:"
+        echo "Example: export SPM12_DIR=/path/to/spm12"
+        exit 1
+    fi
+fi
+
+# Validation check to ensure it's a legitimate SPM12 folder
+if [ ! -f "$SPM12_DIR/spm.m" ]; then
+    echo "Error: The directory '$SPM12_DIR' does not appear to be a valid SPM12 installation ('spm.m' missing)."
+    echo "Please provide a valid path to SPM12."
+    exit 1
 fi
 ############################################################################################################
 
@@ -18,6 +39,32 @@ else
     echo "Please check that the 'spm12' and 'cat12' folders are installed and part of the MATLAB path."
 fi
 
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+  echo "Usage: $(basename "$0") [path_to_image] options: [--bet, --coreg path_to_reference_image]"
+  echo ""
+  echo "Requirements:"
+  echo "MATLAB, SPM12, CAT12"
+  echo ""
+  echo "Run a normalization pipeline by MATLAB (SPM12 and CAT12) directly in the terminal to normalize a T1w image into a MNI152 space using SPM12 and CAT12 (MATLAB Toolbox) directly into the terminal."
+  echo "You can perform a brain extraction without normalization process using --bet option flag."
+  echo ""
+  echo "The script will attempt to find the SPM12 folder automatically. If it cannot be found, you will be required to define the SPM12_DIR environment variable (e.g., export SPM12_DIR=/path/to/spm12) or to write the path in the SPM12_DIR variable at the beginning of this script."
+  echo "The cat12 folder is assumed to be saved inside the spm12/toolbox folder, as explained in the cat12 documentation."
+  echo "Alternatively, you can pass the variable when calling the script (e.g.: SPM12_DIR=/path/to/spm12 ./cat12)."
+  echo ""
+  echo "Arguments:"
+  echo "Path to the image file to process. Must be a nifti (.nii/.nii.gz) file."
+  echo ""
+  echo "Options:"
+  echo "--help -h : show help"
+  echo "--bet : Run only a brain extraction without any normalization."
+  echo "--coreg : Run coregistration of the provided image with a reference image. Must be followed by path to the reference .nii/.nii.gz file."
+  echo "--nproc N : Number of parallel processes for CAT12 (default: all available cores)."
+  echo "--vox V : Isotropic voxel size in mm for normalization (default: 1.5)."
+  echo "--no-surface : Disable surface extraction during normalization."
+  exit 0
+fi
+
 if [ $# -eq 0 ]; then
     echo "No anatomical image provided. Please provide a path to the image."
     exit 1
@@ -26,28 +73,6 @@ fi
 if [[ ! $1 =~ \.nii(\.gz)?$ ]]; then
     echo "Error: The provided image file '$1' is not a valid NIfTI file (.nii or .nii.gz)."
     exit 1
-fi
-
-if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
-  echo "Usage: $(basename "$0") [path_to_image] options: [--bet, --coreg path_to_reference_image] "
-  echo ""
-  echo "Requirements:"
-  echo "MATLAB, SPM12, CAT12"
-  echo ""
-  echo "Run a normalization pipeline by MATLAB (SPM12 and CAT12) directly in the terminal to normalize a T1w image into a MNI152 space using SPM12 and CAT12 (MATLAB Toolbox) directly into the terminal."
-  echo "You can perform a brain extraction without normalization process using --bet option flag". 
-  echo ""
-  echo "Note that you can change the SPM12 folder in the main script 'cat12' (variable: SPM12_DIR); the cat12 folder is assumed to be saved inside the spm12-toolbox folder, as explained in the cat12 documentation."
-  echo "Otherwise you can pass the variable once you call the script (e.g.: SPM12_DIR=/path/to/spm12 ./cat12)"
-  echo ""
-  echo "Arguments:"
-  echo "Path to the image file to process. Must be a nifti (.nii/.nii.gz) file."
-  echo ""
-  echo "Options:"
-  echo "--help -h : show help" 
-  echo "--bet : Run only a brain extraction without any normalization."
-  echo "--coreg : Run coregistration of the provided image with a reference image. Must be followed by path to the reference .nii/.nii.gz file."
-  exit 0
 fi
 
 # Check if more than one input file is provided
@@ -62,9 +87,41 @@ if [ $# -gt 1 ]; then
   esac
 fi
 
+validate_path() {
+    if [[ "$1" =~ [\;\'\"\(\)\&\|] ]]; then
+        echo "Error: Path '$1' contains invalid characters."
+        exit 1
+    fi
+}
+
+convert_to_nii() {
+    local input="$1"
+    local output="${input%.gz}"
+
+    if which mrconvert > /dev/null 2>&1; then
+        echo "Using MRtrix3's mrconvert to convert to NIfTI format..." >&2
+        mrconvert "$input" "$output" -force
+    elif which fslchfiletype > /dev/null 2>&1; then
+        echo "Using FSL's fslchfiletype to convert to NIfTI format..." >&2
+        fslchfiletype NIFTI "$input" "$output"
+    elif which gzip > /dev/null 2>&1; then
+        echo "Using gzip to convert to NIfTI format..." >&2
+        gzip -dkc "$input" > "$output"
+    else
+        echo "Error: Neither mrconvert (MRtrix3), fslchfiletype (FSL), nor gzip could be found." >&2
+        exit 1
+    fi
+
+    echo "$output"
+}
+
 BET_FLAG=0
 COREG_FLAG=0
+NPROC=""
+VOX=""
+SURFACE_FLAG=1
 T1W_REF=""
+PARAMS=()
 while (( "$#" )); do
   case "$1" in
     --bet)
@@ -87,102 +144,94 @@ while (( "$#" )); do
         exit 1
       fi
       if [[ "$T1W_REF" != *.nii ]]; then
-        MRCONVERT_PATH=$(which mrconvert)
-        if [ -z "$MRCONVERT_PATH" ]; then
-          FSL_PATH=$(which fslchfiletype)
-          if [ -z "$FSL_PATH" ]; then
-            GZIP_PATH=$(which gzip)
-            if [ -z "$GZIP_PATH" ]; then
-              echo "Neither mrconvert (MRtrix3), fslchfiletype (FSL), nor gzip could be found. Please install one of them and try again."
-              exit 1
-            else
-              echo "Using gzip to convert reference image to NIFTI format..."
-              T1W_REF_NII="${T1W_REF%.*}.nii"
-              gzip -dk "$T1W_REF" "$T1W_REF_NII"
-              T1W_REF="$T1W_REF_NII"
-            fi
-          else
-            echo "Using FSL's fslchfiletype to convert reference image to NIFTI format..."
-            T1W_REF_NII="${T1W_REF%.*}.nii"
-            fslchfiletype NIFTI "$T1W_REF" "$T1W_REF_NII"
-            T1W_REF="$T1W_REF_NII"
-          fi
-        else
-          echo "Using MRtrix3's mrconvert to convert reference image to NIFTI format..."
-          T1W_REF_NII="${T1W_REF%.*}.nii"
-          mrconvert "$T1W_REF" "$T1W_REF_NII"
-          T1W_REF="$T1W_REF_NII"
-        fi
+        T1W_REF=$(convert_to_nii "$T1W_REF")
       fi
       shift 2
       ;;
-    --) 
+    --nproc)
+      if [ $# -lt 2 ]; then
+        echo "Error: No value provided for --nproc flag."
+        exit 1
+      fi
+      if ! [[ "$2" =~ ^[0-9]+$ ]] || [ "$2" -eq 0 ]; then
+        echo "Error: --nproc requires a positive integer."
+        exit 1
+      fi
+      NPROC="$2"
+      shift 2
+      ;;
+    --vox)
+      if [ $# -lt 2 ]; then
+        echo "Error: No value provided for --vox flag."
+        exit 1
+      fi
+      if ! [[ "$2" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+        echo "Error: --vox requires a positive number."
+        exit 1
+      fi
+      VOX="$2"
+      shift 2
+      ;;
+    --no-surface)
+      SURFACE_FLAG=0
+      shift
+      ;;
+    --)
       break
       ;;
-    -*|--*=) # unsupported flags
+    -*|--*=)
       echo "Error: Unsupported flag $1" >&2
       exit 1
       ;;
-    *) 
-      PARAMS="$PARAMS $1"
+    *)
+      PARAMS+=("$1")
       shift
       ;;
   esac
 done
-#
-eval set -- "$PARAMS"
 
-CODE_SRC=$(dirname "$0")
+set -- "${PARAMS[@]}"
+
+CODE_SRC=$(cd "$(dirname "$0")" && pwd)
 T1W_SRC=$1
 
+validate_path "$T1W_SRC"
+validate_path "$SPM12_DIR"
+
 if [[ "$T1W_SRC" != *.nii ]]; then
-    MRCONVERT_PATH=$(which mrconvert)
-    if [ -z "$MRCONVERT_PATH" ]; then
-        FSL_PATH=$(which fslchfiletype)
-        if [ -z "$FSL_PATH" ]; then
-            GZIP_PATH=$(which gzip)
-            if [ -z "$GZIP_PATH" ]; then
-                echo "Neither mrconvert (MRtrix3), fslchfiletype (FSL), nor gzip could be found. Please, uncompress the .nii.gz in a .nii file and try again."
-                exit 1
-            else
-                echo "Using gzip to convert file to NIFTI format..."
-                T1W_SRC_NII="${T1W_SRC%.*}.nii"
-                gzip -dk "$T1W_SRC" "$T1W_SRC_NII"
-                T1W_SRC="$T1W_SRC_NII"
-            fi
-        else
-            echo "Using FSL's fslchfiletype to convert file to NIFTI format..."
-            T1W_SRC_NII="${T1W_SRC%.*}.nii"
-            fslchfiletype NIFTI "$T1W_SRC" "$T1W_SRC_NII"
-            T1W_SRC="$T1W_SRC_NII"
-        fi
-    else
-        echo "Using MRtrix3's mrconvert to convert file to NIFTI format..."
-        T1W_SRC_NII="${T1W_SRC%.*}.nii"
-        mrconvert "$T1W_SRC" "$T1W_SRC_NII" -force
-        T1W_SRC="$T1W_SRC_NII"
-    fi
+    T1W_SRC=$(convert_to_nii "$T1W_SRC")
 fi
 
+run_matlab() {
+    local runner
+    runner=$(mktemp /tmp/cat12_runner_XXXXXX.m)
+    cat > "$runner" <<MATLAB_EOF
+$1
+MATLAB_EOF
+    matlab -nodisplay -nosplash -nodesktop -r "run('${runner}'); exit;"
+    rm -f "$runner"
+}
+
+NPROC_MATLAB="${NPROC:-[]}"
+VOX_MATLAB="${VOX:-[]}"
+
 if [ $BET_FLAG -eq 1 ]; then
-    CODE="${CODE_SRC}/cat12bet.m"
     echo "------------------------------------------------"
-    echo "[BET]: STARTING BRAIN EXTRACTION... " 
+    echo "[BET]: STARTING BRAIN EXTRACTION..."
     echo "------------------------------------------------"
-    matlab -nodisplay -nosplash -nodesktop -r "addpath(dirname('${CODE}')); cat12bet('${T1W_SRC}', '${SPM12_DIR}'); exit;"
-    echo "[BET]: DONE!" 
+    run_matlab "addpath('${CODE_SRC}'); cat12bet('${T1W_SRC}', '${SPM12_DIR}', ${NPROC_MATLAB});"
+    echo "[BET]: DONE!"
 elif [ $COREG_FLAG -eq 1 ]; then
-    CODE="${CODE_SRC}/cat12coreg.m"
+    validate_path "$T1W_REF"
     echo "------------------------------------------------"
-    echo "[COREGISTRATION]: STARTING COREGISTRATION... " 
+    echo "[COREGISTRATION]: STARTING COREGISTRATION..."
     echo "------------------------------------------------"
-    matlab -nodisplay -nosplash -nodesktop -r "addpath(dirname('${CODE}')); cat12coreg('${T1W_SRC}', '${T1W_REF}', '${SPM12_DIR}'); exit;"
-    echo "[COREGISTRATION]: DONE!" 
+    run_matlab "addpath('${CODE_SRC}'); cat12coreg('${T1W_SRC}', '${T1W_REF}', '${SPM12_DIR}');"
+    echo "[COREGISTRATION]: DONE!"
 else
-    CODE="${CODE_SRC}/cat12norm.m"
     echo "------------------------------------------------"
-    echo "[NORMALIZATION]: STARTING NORMALIZATION IN MNI152... " 
+    echo "[NORMALIZATION]: STARTING NORMALIZATION IN MNI152..."
     echo "------------------------------------------------"
-    matlab -nodisplay -nosplash -nodesktop -r "addpath(dirname('${CODE}')); cat12norm('${T1W_SRC}', '${SPM12_DIR}'); exit;"
-    echo "[NORMALIZATION]: DONE! " 
+    run_matlab "addpath('${CODE_SRC}'); cat12norm('${T1W_SRC}', '${SPM12_DIR}', ${NPROC_MATLAB}, ${VOX_MATLAB}, ${SURFACE_FLAG});"
+    echo "[NORMALIZATION]: DONE!"
 fi

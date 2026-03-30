@@ -1,19 +1,45 @@
-% cat12('Expert');
-% [WARNING]: output folders in 'anat' folder; check in mri folder the final
-% output: wm<sub-filename>
+function cat12norm(t1w_src, spm12_dir, nproc, vox, surface)
 
-% anatomical_img = cellstr(spm_select('FPListRec', cfg.folder_anat, cfg.filenames_anat{1,iSub}));
+    narginchk(2, 5);
 
-function cat12norm(t1w_src, spm12_dir)
+    if ~ischar(t1w_src) || ~exist(t1w_src, 'file')
+        error('cat12norm:invalidInput', 'Input image not found: %s', t1w_src);
+    end
+    if ~ischar(spm12_dir) || ~exist(spm12_dir, 'dir')
+        error('cat12norm:invalidInput', 'SPM12 directory not found: %s', spm12_dir);
+    end
+
+    if nargin < 3 || isempty(nproc)
+        nproc = feature('numcores');
+    end
+    if nargin < 4 || isempty(vox)
+        vox = 1.5;
+    end
+    if nargin < 5 || isempty(surface)
+        surface = 1;
+    end
 
     addpath(spm12_dir);
-    addpath(fullfile(spm12_dir, 'toolbox', 'cat12'));
-    
+    cat12_dir = fullfile(spm12_dir, 'toolbox', 'cat12');
+    if ~exist(cat12_dir, 'dir')
+        error('cat12norm:missingDep', 'CAT12 not found in: %s', cat12_dir);
+    end
+    addpath(cat12_dir);
+
+    if ~exist('spm', 'file')
+        error('cat12norm:missingDep', 'SPM12 is not on the MATLAB path.');
+    end
+    if ~exist('cat12', 'file')
+        error('cat12norm:missingDep', 'CAT12 is not on the MATLAB path.');
+    end
+
+    spm('defaults', 'fmri');
+    spm_jobman('initcfg');
+
     matlabbatch{1}.spm.tools.cat.estwrite.data = {t1w_src};
     matlabbatch{1}.spm.tools.cat.estwrite.data_wmh = {''};
-    matlabbatch{1}.spm.tools.cat.estwrite.nproc = 6;
+    matlabbatch{1}.spm.tools.cat.estwrite.nproc = nproc;
     matlabbatch{1}.spm.tools.cat.estwrite.useprior = '';
-    % matlabbatch{1}.spm.tools.cat.estwrite.opts.tpm = {fullfile(spm12_dir, 'tpm', 'TPM.nii')};
     tpm_path = fullfile(spm12_dir, 'tpm', 'TPM.nii');
     matlabbatch{1}.spm.tools.cat.estwrite.opts.tpm = {tpm_path};
     matlabbatch{1}.spm.tools.cat.estwrite.opts.affreg = 'mni';
@@ -27,17 +53,16 @@ function cat12norm(t1w_src, spm12_dir)
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.LASmyostr = 0;
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.gcutstr = 2;
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.WMHC = 2;
-    % matlabbatch{1}.spm.tools.cat.estwrite.extopts.registration.shooting.shootingtpm = {fullfile(spm12_dir, 'toolbox', 'cat12', 'templates_MNI152NLin2009cAsym', 'Template_0_GS.nii')};
     shootingtpm_path = fullfile(spm12_dir, 'toolbox', 'cat12', 'templates_MNI152NLin2009cAsym', 'Template_0_GS.nii');
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.registration.shooting.shootingtpm = {shootingtpm_path};
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.registration.shooting.regstr = 0.5;
-    matlabbatch{1}.spm.tools.cat.estwrite.extopts.vox = 1.5;
+    matlabbatch{1}.spm.tools.cat.estwrite.extopts.vox = vox;
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.bb = 12;
     matlabbatch{1}.spm.tools.cat.estwrite.extopts.SRP = 22;
-    matlabbatch{1}.spm.tools.cat.estwrite.extopts.ignoreErrors = 1;
+    matlabbatch{1}.spm.tools.cat.estwrite.extopts.ignoreErrors = 0;
     matlabbatch{1}.spm.tools.cat.estwrite.output.BIDS.BIDSno = 1;
-    matlabbatch{1}.spm.tools.cat.estwrite.output.surface = 1;
-    matlabbatch{1}.spm.tools.cat.estwrite.output.surf_measures = 1;
+    matlabbatch{1}.spm.tools.cat.estwrite.output.surface = surface;
+    matlabbatch{1}.spm.tools.cat.estwrite.output.surf_measures = surface;
     matlabbatch{1}.spm.tools.cat.estwrite.output.ROImenu.atlases.neuromorphometrics = 1;
     matlabbatch{1}.spm.tools.cat.estwrite.output.ROImenu.atlases.lpba40 = 1;
     matlabbatch{1}.spm.tools.cat.estwrite.output.ROImenu.atlases.cobra = 1;
@@ -88,7 +113,6 @@ function cat12norm(t1w_src, spm12_dir)
     matlabbatch{1}.spm.tools.cat.estwrite.output.warps = [1 0];
     matlabbatch{1}.spm.tools.cat.estwrite.output.rmat = 0;
 
-    spm_jobman('run', matlabbatch); % > to run it
-    % spm_jobman('interactive', matlabbatch); % > to open the batch
+    spm_jobman('run', matlabbatch);
 
 end
